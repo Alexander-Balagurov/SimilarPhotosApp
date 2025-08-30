@@ -44,11 +44,6 @@
 			path = SimilarPhotosAppTests;
 			sourceTree = "<group>";
 		};
-		A3CC65212E6360100089A82D /* SimilarPhotosAppUITests */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = SimilarPhotosAppUITests;
-			sourceTree = "<group>";
-		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,7 +77,6 @@
 			children = (
 				A3CC65082E63600E0089A82D /* SimilarPhotosApp */,
 				A3CC65172E6360100089A82D /* SimilarPhotosAppTests */,
-				A3CC65212E6360100089A82D /* SimilarPhotosAppUITests */,
 				A3CC65072E63600E0089A82D /* Products */,
 			);
 			sourceTree = "<group>";
@@ -158,9 +152,6 @@
 			);
 			dependencies = (
 				A3CC65202E6360100089A82D /* PBXTargetDependency */,
-			);
-			fileSystemSynchronizedGroups = (
-				A3CC65212E6360100089A82D /* SimilarPhotosAppUITests */,
 			);
 			name = SimilarPhotosAppUITests;
 			packageProductDependencies = (
