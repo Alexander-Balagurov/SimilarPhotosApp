@@ -11,7 +11,7 @@ import Vision
 
 @DependencyClient
 struct VisionService {
-    var groupPhotos: () async throws -> [[PhotoModel]]
+    var groupPhotosStream: () -> AsyncThrowingStream<ProgressUpdate, Error> = { .never }
 }
 
 extension DependencyValues {

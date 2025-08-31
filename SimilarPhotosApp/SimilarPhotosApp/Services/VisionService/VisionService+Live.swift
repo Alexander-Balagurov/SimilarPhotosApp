@@ -16,47 +16,62 @@ extension VisionService {
     static func live() -> VisionService {
         let helper = VisionServiceHelper()
         return VisionService(
-            groupPhotos: helper.groupPhotos
+            groupPhotosStream: helper.groupPhotosStream
         )
     }
     
     private struct VisionServiceHelper {
         @Dependency(\.photoLibraryService) private var photoLibraryService
         private let distanceThreshold: Float = 0.6
+        private let windowSize = 100
         
-        func groupPhotos() async throws -> [[PhotoModel]] {
-            do {
-                let photos = try await photoLibraryService.fetchPhotoAssets()
-                var result: [[PhotoModel]] = []
-                var used = Set<String>()
-
-                for photo in photos {
-                    guard !used.contains(photo.id) else { continue }
-                    let baseObservation = try await makeObservation(for: photo)
-                    var cluster: [PhotoModel] = [photo]
-                    used.insert(photo.id)
-                    
-                    for other in photos {
-                        guard !used.contains(other.id) else { continue }
-                        let otherObservation = try await makeObservation(for: other)
-                        var distance: Float = 0
-                        try baseObservation.computeDistance(&distance, to: otherObservation)
-                        print("distance", distance)
+        func groupPhotosStream() -> AsyncThrowingStream<ProgressUpdate, Error> {
+            AsyncThrowingStream { continuation in
+                Task {
+                    do {
+                        let photos = try await photoLibraryService.fetchPhotoAssets()
+                        var result: [[PhotoModel]] = []
+                        var used = Set<String>()
                         
-                        if distance < distanceThreshold {
-                            cluster.append(other)
-                            used.insert(other.id)
+                        for (index, photo) in photos.enumerated() {
+                            guard !used.contains(photo.id) else { continue }
+                            let baseObservation = try await makeObservation(for: photo)
+                            var cluster: [PhotoModel] = [photo]
+                            used.insert(photo.id)
+                            
+                            let start = index + 1
+                            let end = min(index + windowSize, photos.count)
+                            for other in photos[start..<end] {
+                                guard !used.contains(other.id) else { continue }
+                                let otherObservation = try await makeObservation(for: other)
+                                var distance: Float = 0
+                                try baseObservation.computeDistance(&distance, to: otherObservation)
+                                
+                                if distance < distanceThreshold {
+                                    cluster.append(other)
+                                    used.insert(other.id)
+                                }
+                            }
+                            
+                            if cluster.count > 1 {
+                                result.append(cluster)
+                            }
+                            
+                            continuation.yield(
+                                ProgressUpdate(
+                                    clusters: result,
+                                    processedCount: used.count,
+                                    totalCount: photos.count
+                                )
+                            )
                         }
-                    }
-                    if cluster.count > 1 {
-                        result.append(cluster)
+                        
+                        continuation.finish()
+                    } catch {
+                        reportIssue(error)
+                        continuation.finish(throwing: error)
                     }
                 }
-                
-                return result
-            } catch {
-                reportIssue(error)
-                throw error
             }
         }
         

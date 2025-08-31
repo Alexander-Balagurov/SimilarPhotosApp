@@ -19,7 +19,7 @@ struct SimilarPhotosFeature {
         }
         
         var screenState: ScreenState = .idle
-        var clusters: [[PhotoModel]] = []
+        var progress = ProgressUpdate(clusters: [[]], processedCount: 0, totalCount: 0)
         @Presents var destination: Destination.State?
     }
     
@@ -30,7 +30,7 @@ struct SimilarPhotosFeature {
         }
         
         enum Local {
-            case photosGrouped([[PhotoModel]])
+            case progressUpdated(ProgressUpdate)
             case processingError(String)
         }
 
@@ -70,15 +70,16 @@ private extension SimilarPhotosFeature {
             state.screenState = .processing
             return .run { send in
                 do {
-                    let clusters = try await visionService.groupPhotos()
-                    await send(.local(.photosGrouped(clusters)))
+                    for try await progress in visionService.groupPhotosStream() {
+                        await send(.local(.progressUpdated(progress)))
+                    }
                 } catch {
                     await send(.local(.processingError(error.localizedDescription)))
                 }
             }
             
         case let .clusterSelected(index):
-            let clusterDetailsState = ClusterDetailsFeature.State(photos: state.clusters[index])
+            let clusterDetailsState = ClusterDetailsFeature.State(photos: state.progress.clusters[index])
             state.destination = .showClusterDetails(clusterDetailsState)
             return .none
         }
@@ -86,9 +87,9 @@ private extension SimilarPhotosFeature {
     
     func handleLocal(state: inout State, action: Action.Local) -> Effect<Action> {
         switch action {
-        case let .photosGrouped(clusters):
-            state.clusters = clusters
-            state.screenState = .success(clusters.compactMap(\.first))
+        case let .progressUpdated(progress):
+            state.progress = progress
+            state.screenState = .success(state.progress.clusters.compactMap(\.first))
             return .none
             
         case let .processingError(error):

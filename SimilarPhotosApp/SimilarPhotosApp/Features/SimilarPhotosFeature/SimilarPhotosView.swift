@@ -51,21 +51,28 @@ struct SimilarPhotosView: View {
     }
     
     private func clustersView(_ clusters: [PhotoModel]) -> some View {
-        ScrollView {
-            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))]) {
-                ForEach(Array(zip(clusters, clusters.indices)), id: \.0) { photo, index in
-                    Image(uiImage: photo.image)
-                        .resizable()
-                        .scaledToFill()
-                        .frame(width: 100, height: 100)
-                        .clipped()
-                        .onTapGesture {
-                            send(.clusterSelected(index))
-                        }
+        VStack(spacing: 0) {
+            ScrollView {
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))]) {
+                    ForEach(Array(zip(clusters, clusters.indices)), id: \.0) { photo, index in
+                        Image(uiImage: photo.image)
+                            .resizable()
+                            .scaledToFill()
+                            .frame(width: 100, height: 100)
+                            .clipped()
+                            .onTapGesture {
+                                send(.clusterSelected(index))
+                            }
+                    }
                 }
             }
+            .scrollBounceBehavior(.basedOnSize)
+            
+            Spacer(minLength: 20)
+            
+            Text("\(store.progress.processedCount)/\(store.progress.totalCount) processed")
+                .font(.caption)
         }
-        .scrollBounceBehavior(.basedOnSize)
     }
     
     private func errorView(_ error: String) -> some View {

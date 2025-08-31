@@ -29,10 +29,8 @@ extension PhotoLibraryService {
             }
             
             let fetchOptions = PHFetchOptions()
-            fetchOptions.predicate = NSPredicate(
-                format: "mediaType == %d",
-                PHAssetMediaType.image.rawValue
-            )
+            fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: true)]
+            fetchOptions.predicate = NSPredicate(format: "mediaType == %d", PHAssetMediaType.image.rawValue)
             let fetchResult = PHAsset.fetchAssets(with: fetchOptions)
             var assets: [PHAsset] = []
             fetchResult.enumerateObjects { asset, _, _ in
