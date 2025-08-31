@@ -6,7 +6,6 @@
 //
 
 import Dependencies
-import Photos
 import Vision
 
 extension DependencyValues.VisionServiceKey: DependencyKey {
@@ -17,7 +16,7 @@ extension VisionService {
     static func live() -> VisionService {
         let helper = VisionServiceHelper()
         return VisionService(
-            clusterPhotos: helper.clusterPhotos
+            groupPhotos: helper.groupPhotos
         )
     }
     
@@ -25,60 +24,55 @@ extension VisionService {
         @Dependency(\.photoLibraryService) private var photoLibraryService
         private let distanceThreshold: Float = 0.6
         
-        func clusterPhotos() async -> [[PHAsset]] {
-            let assets = await photoLibraryService.fetchPhotoAssets()
-            var result: [[PHAsset]] = []
-            var used = Set<String>()
+        func groupPhotos() async throws -> [[PhotoModel]] {
+            do {
+                let photos = try await photoLibraryService.fetchPhotoAssets()
+                var result: [[PhotoModel]] = []
+                var used = Set<String>()
 
-            for asset in assets {
-                guard !used.contains(asset.localIdentifier) else { continue }
-
-                if let baseObservation = await makeObservation(for: asset) {
-                    var cluster: [PHAsset] = [asset]
-                    used.insert(asset.localIdentifier)
-
-                    for other in assets {
-                        guard !used.contains(other.localIdentifier),
-                              let otherObservation = await makeObservation(for: other)
-                        else { continue }
-                        
+                for photo in photos {
+                    guard !used.contains(photo.id) else { continue }
+                    let baseObservation = try await makeObservation(for: photo)
+                    var cluster: [PhotoModel] = [photo]
+                    used.insert(photo.id)
+                    
+                    for other in photos {
+                        guard !used.contains(other.id) else { continue }
+                        let otherObservation = try await makeObservation(for: other)
                         var distance: Float = 0
-                        try? baseObservation.computeDistance(&distance, to: otherObservation)
+                        try baseObservation.computeDistance(&distance, to: otherObservation)
                         print("distance", distance)
-
+                        
                         if distance < distanceThreshold {
                             cluster.append(other)
-                            used.insert(other.localIdentifier)
+                            used.insert(other.id)
                         }
                     }
                     if cluster.count > 1 {
                         result.append(cluster)
                     }
                 }
+                
+                return result
+            } catch {
+                reportIssue(error)
+                throw error
             }
-
-            print("----", result.count)
-            return result
         }
         
-        private func makeObservation(for asset: PHAsset) async -> VNFeaturePrintObservation? {
-            let options = PHImageRequestOptions()
-            options.isNetworkAccessAllowed = true
-            options.deliveryMode = .opportunistic
-            options.resizeMode = .fast
-            options.isSynchronous = false
-            
-            let image = await photoLibraryService.fetchImage(asset)
-            guard let cgImage = image?.cgImage else { return nil }
-            
+        private func makeObservation(for photo: PhotoModel) async throws -> VNFeaturePrintObservation {
+            guard let cgImage = photo.image.cgImage else { throw CustomError.makeObservationError }
             let request = VNGenerateImageFeaturePrintRequest()
             let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
             do {
                 try handler.perform([request])
-                return request.results?.first as? VNFeaturePrintObservation
+                guard let observation = request.results?.first as? VNFeaturePrintObservation else {
+                    throw CustomError.makeObservationError
+                }
+                return observation
             } catch {
                 reportIssue(error)
-                return nil
+                throw error
             }
         }
     }

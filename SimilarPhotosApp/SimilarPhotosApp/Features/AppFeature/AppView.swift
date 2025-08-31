@@ -21,18 +21,12 @@ struct AppView: View {
             )
             .tabItem {
                 VStack {
-                    Image(systemName: .similarPhotosImageName)
-                    Text(verbatim: .similarPhotosTab)
+                    Image(systemName: "photo.stack")
+                    Text("Similar Photos")
                 }
             }
         }
     }
-    
-}
-
-private extension String {
-    static let similarPhotosTab = "Similar Photos"
-    static let similarPhotosImageName = "photo.stack"
 }
 
 #Preview {

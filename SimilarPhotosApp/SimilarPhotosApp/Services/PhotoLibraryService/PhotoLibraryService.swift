@@ -7,13 +7,10 @@
 
 import Dependencies
 import DependenciesMacros
-import Photos
-import UIKit
 
 @DependencyClient
 struct PhotoLibraryService {
-    var fetchPhotoAssets: () async -> [PHAsset] = { [] }
-    var fetchImage: (PHAsset) async -> UIImage? = { _ in nil }
+    var fetchPhotoAssets: () async throws -> [PhotoModel]
 }
 
 extension DependencyValues {

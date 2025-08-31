@@ -13,11 +13,15 @@ struct AppFeature {
         var similarPhotos = SimilarPhotosFeature.State()
     }
     
-    enum Action: Equatable {
+    enum Action {
         case similarPhotos(SimilarPhotosFeature.Action)
     }
     
     var body: some ReducerOf<Self> {
+        Scope(state: \.similarPhotos, action: \.similarPhotos) {
+            SimilarPhotosFeature()
+        }
+        
         Reduce { state, action in
                 .none
         }

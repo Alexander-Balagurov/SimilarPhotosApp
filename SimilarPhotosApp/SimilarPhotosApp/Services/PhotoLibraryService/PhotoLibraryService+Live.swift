@@ -18,14 +18,16 @@ extension PhotoLibraryService {
         let helper = PhotoLibraryHelper()
         return PhotoLibraryService(
             fetchPhotoAssets: helper.fetchPhotoAssets,
-            fetchImage: helper.fetchImage
         )
     }
     
     private struct PhotoLibraryHelper {
-        func fetchPhotoAssets() async -> [PHAsset] {
+        func fetchPhotoAssets() async throws -> [PhotoModel] {
             let status = await PHPhotoLibrary.requestAuthorization(for: .readWrite)
-            guard status == .authorized || status == .limited else { return [] }
+            guard status == .authorized || status == .limited else {
+                throw CustomError.deniedAccessToLibrary
+            }
+            
             let fetchOptions = PHFetchOptions()
             fetchOptions.predicate = NSPredicate(
                 format: "mediaType == %d",
@@ -36,18 +38,42 @@ extension PhotoLibraryService {
             fetchResult.enumerateObjects { asset, _, _ in
                 assets.append(asset)
             }
-            return assets
+            
+            var photos: [PhotoModel] = []
+            let asyncPHAssets = AsyncStream<PHAsset> { continuation in
+                for asset in assets {
+                    continuation.yield(asset)
+                }
+                continuation.finish()
+            }
+            
+            for await asset in asyncPHAssets {
+                let photoModel = try await fetchImage(asset)
+                photos.append(photoModel)
+            }
+            
+            return photos
         }
         
-        func fetchImage(_ asset: PHAsset) async -> UIImage? {
-            await withCheckedContinuation { continuation in
+        private func fetchImage(_ asset: PHAsset) async throws -> PhotoModel {
+            let options = PHImageRequestOptions()
+            options.isNetworkAccessAllowed = true
+            options.deliveryMode = .opportunistic
+            options.resizeMode = .fast
+            options.isSynchronous = true
+            
+            return try await withCheckedThrowingContinuation { continuation in
                 PHImageManager.default().requestImage(
                     for: asset,
                     targetSize: CGSize(width: 224, height: 224),
                     contentMode: .aspectFill,
-                    options: nil
+                    options: options
                 ) { image, _ in
-                    continuation.resume(returning: image)
+                    guard let photoModel = PhotoModel(id: asset.localIdentifier, image: image) else {
+                        continuation.resume(throwing: CustomError.fetchImageError)
+                        return
+                    }
+                    continuation.resume(returning: photoModel)
                 }
             }
         }

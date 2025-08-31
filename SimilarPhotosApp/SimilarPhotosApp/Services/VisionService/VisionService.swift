@@ -7,12 +7,11 @@
 
 import Dependencies
 import DependenciesMacros
-import Photos
 import Vision
 
 @DependencyClient
 struct VisionService {
-    var clusterPhotos: () async -> [[PHAsset]] = { [[]] }
+    var groupPhotos: () async throws -> [[PhotoModel]]
 }
 
 extension DependencyValues {

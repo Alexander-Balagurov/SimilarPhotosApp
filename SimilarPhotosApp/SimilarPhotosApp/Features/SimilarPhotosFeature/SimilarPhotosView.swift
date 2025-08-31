@@ -8,10 +8,69 @@
 import ComposableArchitecture
 import SwiftUI
 
+@ViewAction(for: SimilarPhotosFeature.self)
 struct SimilarPhotosView: View {
-    let store: StoreOf<SimilarPhotosFeature>
+    @Bindable var store: StoreOf<SimilarPhotosFeature>
     
     var body: some View {
-        Text("SimilarPhotosView")
+        NavigationStack {
+            NavigationView {
+                contentView
+                    .navigationTitle("Similar Photos")
+            }
+            .navigationDestination(
+                item: $store.scope(
+                    state: \.destination?.showClusterDetails,
+                    action: \.destination.showClusterDetails
+                )
+            ) { store in
+                ClusterDetailsView(store: store)
+            }
+        }
+    }
+    
+    @ViewBuilder
+    private var contentView: some View {
+        switch store.screenState {
+        case .idle: idleView
+        case .processing: ProgressView()
+        case let .success(clusters): clustersView(clusters)
+        case let .error(error): errorView(error)
+        }
+    }
+    
+    private var idleView: some View {
+        VStack(spacing: 20) {
+            Text("Tap to group photos")
+                .font(.headline)
+            
+            Button("Start") {
+                send(.startButtonTapped)
+            }
+        }
+    }
+    
+    private func clustersView(_ clusters: [PhotoModel]) -> some View {
+        ScrollView {
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 120))]) {
+                ForEach(Array(zip(clusters, clusters.indices)), id: \.0) { photo, index in
+                    Image(uiImage: photo.image)
+                        .resizable()
+                        .scaledToFill()
+                        .frame(width: 100, height: 100)
+                        .clipped()
+                        .onTapGesture {
+                            send(.clusterSelected(index))
+                        }
+                }
+            }
+        }
+        .scrollBounceBehavior(.basedOnSize)
+    }
+    
+    private func errorView(_ error: String) -> some View {
+        Text(error)
+            .font(.headline)
+            .foregroundStyle(.red)
     }
 }
